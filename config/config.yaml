@@ -14,6 +14,7 @@ analysis:
   # converter_inclusive: converters always enter the denominator.
   #   Biased upward — retained for comparison only.
   denominator_rule: window_closed
+  validation_alpha: 0.05
 
 # ---------------------------------------------------------
 # Patient journey stages

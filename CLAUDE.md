@@ -11,4 +11,4 @@ recommends the most profitable intervention.
 - Censoring is the core correctness requirement. A patient without enough
   observation time is censored, never a drop-off.
 - Build only the module I ask for. Do not scaffold ahead.
-- Plain pandas, numpy, statsmodels, matplotlib. No frameworks.
+- Plain pandas, numpy, scipy, statsmodels, matplotlib. No frameworks.
