@@ -28,7 +28,6 @@ This means patients who reach Continued Treatment may still discontinue later. P
 
 ## 2. Censoring
 
-2. Censoring
 A patient diagnosed last week has not dropped out. They have not had time to progress.
 * What is your observation window?
 * How do you exclude patients who have not had time to reach the next stage?
@@ -42,7 +41,30 @@ Eligible patients = Converted patients + True drop-offs
 Censored patients are excluded from the denominator.
 For Continued Treatment, which requires 3 total fills with a maximum 45-day gap between fills, I use a 90-day assessment window after the first fill. This gives the patient enough observable time to complete two possible 45-day gaps:
 First Fill → up to 45 days → Second Fill → up to 45 days → Third Fill
-Why this matters
+
+## Denominator rule. 
+
+I initially specified that patients who converted were eligible by definition. Quantifying this showed it inflates conversion by 0.5 to 1.4 percentage points, always upward, and most at the transition with the longest observation window.
+
+The cause is that the inclusion criterion depends on the outcome. Among patients whose window had not closed at the cutoff, only those who converted could enter the denominator, so the risk set is not a proper cohort. This is a selection bias in the denominator, the same family of error as immortal time bias.
+
+I changed the rule to window_closed: a patient enters the denominator at a transition only if the full opportunity window elapsed before the cutoff, regardless of outcome. This recovers the injected ground truth almost exactly (0.8223 vs 0.8217 injected at diagnosis to prescription, 0.7185 vs 0.7219 at refill to continued).
+
+Both rules remain implemented so the comparison is reproducible.
+The upward bias from the converter-inclusive rule depends on both the number of converters whose opportunity window is still open and the underlying conversion rate.
+
+The difference between the converter-inclusive and window-closed conversion rates can be expressed as:
+
+gap = (open-window converters / eligible patients) × (1 − conversion rate)
+
+A longer opportunity window can increase the number of patients with open windows, but window length alone does not determine the size of the bias. The timing of the transition anchor also matters.
+
+The direction of the bias is guaranteed to be upward because the additional patients admitted under the converter-inclusive rule are all converters.
+
+Post-continuation analysis uses a clinically defined population: patients who reached at least 3 qualifying fills. This population is distinct from the window-closed funnel denominator because post-continuation attrition is analyzed separately from the five-stage funnel.
+
+## Why this matters
+
 If recent patients are counted as drop-offs, every funnel will look worse than it really is. The distortion becomes larger at later stages because those stages require more observation time. Correct censoring prevents patients who have simply not had enough time from being misclassified as failures.
 
 3. Revenue attribution
