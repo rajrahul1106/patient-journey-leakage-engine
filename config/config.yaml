@@ -1,0 +1,181 @@
+# Patient Journey Leakage & Intervention Optimization Engine
+# Edit these values yourself. Do not let Claude Code choose them for you.
+
+simulation:
+  n_patients: 20000
+  start_date: "2024-01-01"
+  end_date: "2025-12-31"
+  observation_cutoff: "2025-12-31"
+  seed: 42
+
+# ---------------------------------------------------------
+# Patient journey stages
+# ---------------------------------------------------------
+
+stages:
+  - name: diagnosed
+    order: 1
+
+  - name: prescribed
+    order: 2
+    max_days_from_previous: 60
+
+  - name: first_fill
+    order: 3
+    max_days_from_previous: 30
+
+  - name: refill
+    order: 4
+    max_days_from_previous: 45
+
+  - name: continued
+    order: 5
+    min_consecutive_fills: 3
+    max_gap_days: 45
+    assessment_window_days: 90
+
+# ---------------------------------------------------------
+# Base transition probabilities
+#
+# These are simulation assumptions.
+# Injected effects below modify these probabilities.
+# ---------------------------------------------------------
+
+base_transition_probabilities:
+  diagnosed_to_prescribed: 0.85
+  prescribed_to_first_fill: 0.72
+  first_fill_to_refill: 0.78
+  refill_to_continued: 0.75
+
+# ---------------------------------------------------------
+# Revenue assumptions
+# ---------------------------------------------------------
+
+revenue:
+  per_fill: 2400
+  expected_fills_full_course: 12
+
+# ---------------------------------------------------------
+# Patient segmentation variables
+# ---------------------------------------------------------
+
+segments:
+  payer_type:
+    - commercial
+    - government
+    - cash_pay
+
+  age_band:
+    - "18-39"
+    - "40-59"
+    - "60-74"
+    - "75+"
+
+  prescriber_specialty:
+    - cardiologist
+    - general_physician
+    - consulting_physician
+
+  geography:
+    - metro
+    - tier2
+    - rural
+
+
+patient_features:
+  comorbidity_count:
+    distribution: poisson
+    lam: 1.4
+
+  out_of_pocket_cost:
+    by_payer:
+      commercial:
+        mean: 400
+        sd: 150
+
+      government:
+        mean: 200
+        sd: 80
+
+      cash_pay:
+        mean: 2100
+        sd: 600
+
+# ---------------------------------------------------------
+# Injected ground-truth effects
+#
+# These deliberately modify patient conversion probabilities.
+# Example:
+# cash_pay_first_fill_penalty: 0.35
+# means:
+# adjusted_probability = base_probability * (1 - 0.35)
+# ---------------------------------------------------------
+
+injected_effects:
+  cash_pay_first_fill_penalty: 0.35
+  rural_refill_penalty: 0.20
+  age_75_plus_continued_penalty: 0.15
+  gp_diagnosed_to_prescribed_penalty: 0.10
+
+# ---------------------------------------------------------
+# Intervention assumptions
+#
+# target_stage means the destination stage whose conversion
+# the intervention is intended to improve.
+#
+# Example:
+# target_stage: first_fill
+# means the intervention targets:
+# prescribed -> first_fill
+# ---------------------------------------------------------
+# Intervention expected_lift is a RELATIVE increase in the current
+# conversion rate, not a percentage-point increase.
+#
+# Example:
+# current conversion = 0.50
+# expected_lift = 0.22
+# new conversion = 0.50 * (1 + 0.22) = 0.61
+#
+# Final conversion probability must be capped at 1.0.
+
+interventions:
+
+  - name: copay_assistance
+    target_stage: first_fill
+    cost_per_patient: 900
+    expected_lift: 0.22
+    eligible_segment:
+      payer_type:
+        - cash_pay
+
+  - name: refill_reminders
+    target_stage: refill
+    cost_per_patient: 40
+    expected_lift: 0.06
+    eligible_segment: {}
+
+  - name: nurse_education_call
+    target_stage: continued
+    cost_per_patient: 350
+    expected_lift: 0.14
+    eligible_segment:
+      age_band:
+        - "60-74"
+        - "75+"
+
+  - name: digital_adherence_app
+    target_stage: continued
+    cost_per_patient: 120
+    expected_lift: 0.08
+    eligible_segment:
+      age_band:
+        - "18-39"
+        - "40-59"
+
+  - name: prescriber_detailing
+    target_stage: prescribed
+    cost_per_patient: 1500
+    expected_lift: 0.11
+    eligible_segment:
+      prescriber_specialty:
+        - general_physician
