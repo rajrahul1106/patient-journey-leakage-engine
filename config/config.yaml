@@ -46,6 +46,12 @@ base_transition_probabilities:
   prescribed_to_first_fill: 0.72
   first_fill_to_refill: 0.78
   refill_to_continued: 0.75
+  post_continuation_per_fill: 0.75
+
+  # Probability that a patient already in continued treatment takes each
+  # further fill after the third. This is a separate parameter from
+  # refill_to_continued that happens to share its value today.
+  post_continuation_per_fill: 0.75
 
 # ---------------------------------------------------------
 # Revenue assumptions

@@ -16,6 +16,18 @@ Starting definitions used in this project:
 * Continued Treatment = at least 3 total consecutive fills, including the first fill, with no gap greater than 45 days
 The prescriber_specialty variable is assigned at cohort entry and represents the diagnosing or treating physician associated with the patient. This allows physician specialty to be used when modeling the Diagnosis → Prescription transition, including for patients who never receive a prescription.
 
+### Timing and post-funnel mechanics
+
+Inter-event gaps are drawn uniformly from 1 to max_days_from_previous. Same-day transitions are excluded so that event sequence is unambiguous from dates alone.
+
+This is a simplification: in real claims data, diagnosis and prescription frequently occur in the same visit. The effect on measured conversion rates is negligible, limited to a small number of patients near the observation cutoff whose transition may be pushed one day beyond it.
+
+Attrition does not stop at Continued Treatment. Each fill beyond the third occurs with probability 0.75, capped at the 12-fill treatment course.
+
+This means patients who reach Continued Treatment may still discontinue later. Post-continuation attrition is therefore reported separately from the five-stage funnel, which measures leakage only up to Continued Treatment.
+
+## 2. Censoring
+
 2. Censoring
 A patient diagnosed last week has not dropped out. They have not had time to progress.
 * What is your observation window?
@@ -54,7 +66,7 @@ These are simulation assumptions used for comparing leakage value and are not es
 List the features and, for each, your prior on why it would affect drop-off.
 Feature	Expected direction	Reasoning
 Payer type	Cash-pay patients expected to have lower First Fill conversion	Greater direct financial burden may increase treatment abandonment
-Age band	Older patients expected to have slightly lower continued-treatment persistence	Treatment complexity, medication burden, mobility, and access challenges may increase with age
+Age band    Patients aged 75+ expected to have a lower probability of reaching Continued Treatment    Treatment complexity, medication burden, mobility, and access challenges may increase with age
 Prescriber specialty	General-physician-associated patients expected to have somewhat lower Diagnosis → Prescription conversion	Physician specialty may be associated with disease-specific treatment familiarity and prescribing behavior
 Comorbidity count	Higher count expected to reduce persistence	Multiple conditions and medications can increase treatment complexity
 Geography / urban-rural	Rural patients expected to have lower refill conversion	Pharmacy and healthcare access may be more limited
