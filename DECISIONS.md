@@ -293,6 +293,45 @@ For a targeted group:
 
 **Patients recovered = Patients targeted × (New conversion rate − Current conversion rate)**
 
+### Intervention revenue valuation
+
+Funnel revenue loss and intervention revenue recovery use different valuation concepts.
+
+The funnel measures remaining potential revenue at stake. For example, a patient lost before First Fill has 12 potential fills remaining.
+
+Intervention ROI instead uses expected realised revenue. Recovering a patient at one stage does not guarantee completion of the remaining treatment course; the patient continues to face the observed downstream conversion probabilities and post-continuation attrition.
+
+Expected realised fills are therefore propagated through the remaining journey using the observed window-closed transition rates and the configured post-continuation per-fill probability.
+
+For Continued Treatment:
+
+Expected additional fills after the third fill =
+sum of p_post^k for k = 1 through 9.
+
+Earlier recovery stages additionally incorporate the probability of reaching each downstream stage.
+
+Expected realised value per recovered patient is:
+
+Expected incremental realised fills × revenue per fill
+
+where fills already completed before the recovered transition are subtracted.
+
+Both potential and expected-realised values are reported for transparency, but intervention net return and return per rupee are ranked using expected-realised value.
+
+This distinction matters because potential-value overstatement is larger for earlier-stage interventions, whose recovered patients must survive more downstream transitions.
+
+### Downstream-rate assumption
+
+Expected realised fills use pooled downstream conversion rates rather than segment-specific downstream rates.
+
+Segment-specific rates would be more appropriate in general, but they are unnecessary for this synthetic design because payer type, age band, prescriber specialty, and geography are generated independently, and each deliberately injected penalty is scoped to exactly one transition.
+
+For example, a cash-pay patient recovered at First Fill does not receive an additional cash-pay penalty at First Fill → Refill or Refill → Continued Treatment. Their downstream geography and age distribution also matches the wider population by construction.
+
+Therefore, pooled downstream transition rates provide the appropriate expected-value calculation for this simulation.
+
+With real patient data, this assumption would need to be tested because patient characteristics such as payer, geography, treatment setting, and access barriers may be correlated across the journey.
+
 ### Intervention cost
 
 Intervention cost is charged to every patient targeted, not only to incrementally recovered patients.
@@ -537,3 +576,71 @@ This demonstrates proxy behaviour:
 > A correlated variable can appear strongly predictive when the underlying driver is omitted, yet contribute almost no independent signal once that driver is included.
 
 The documented incorrect prediction is retained rather than silently rewritten because the difference between the original expectation and the observed result is itself an important analytical finding.
+
+### Amendment after running the intervention analysis
+
+The intervention analysis produced a second important result that differed from my initial expectation.
+
+My first intervention valuation used remaining potential treatment value, the same convention used in the funnel analysis. That approach was appropriate for measuring revenue at stake, but not for estimating intervention ROI.
+
+Recovering a patient at an earlier stage does not guarantee that the patient will complete the remaining treatment course. The recovered patient still faces downstream First Fill, Refill, Continued Treatment, and post-continuation attrition.
+
+I therefore replaced potential-value intervention revenue with expected realised revenue based on the observed downstream window-closed conversion rates and the configured post-continuation progression probability.
+
+The correction was stage-dependent rather than a uniform haircut. Earlier-stage interventions were affected more strongly because recovered patients still had more downstream transitions to survive.
+
+Approximate potential-value overstatement was:
+
+- Prescriber detailing / recovery to Prescribed: about 5.12×.
+- Copay assistance / recovery to First Fill: about 3.23×.
+- Refill reminders / recovery to Refill: about 2.96×.
+- Continued-treatment interventions: about 2.65×.
+
+Because these corrections differ by stage, the intervention ranking changed materially when expected realised value was used.
+
+Every intervention changed rank relative to the original potential-value ranking, and prescriber detailing moved from near the top of the ranking to near the bottom.
+
+The sensitivity conclusion also changed. Under the original potential-value convention, the intervention ranking appeared relatively stable. Under expected-realised valuation, the 0.5× lift scenario causes two interventions to become loss-making.
+
+This means the earlier apparent ranking stability was partly an artifact of an incorrect valuation assumption rather than evidence that the recommendation was robust.
+
+The final intervention recommendation is therefore based on expected realised value, while potential value is retained only as a comparison showing how much treatment revenue is theoretically at stake.
+
+This distinction became one of the main findings of the project: correcting an apparently reasonable valuation assumption materially changed the business recommendation.
+
+This demonstrates proxy behaviour:
+
+> A correlated variable can appear strongly predictive when the underlying driver is omitted, yet contribute almost no independent signal once that driver is included.
+
+The documented incorrect prediction is retained rather than silently rewritten because the difference between the original expectation and the observed result is itself an important analytical finding.
+
+### Amendment after running the intervention analysis
+
+The intervention analysis produced a second important result that differed from my initial expectation.
+
+My first intervention valuation used remaining potential treatment value, the same convention used in the funnel analysis. That approach was appropriate for measuring revenue at stake, but not for estimating intervention ROI.
+
+Recovering a patient at an earlier stage does not guarantee that the patient will complete the remaining treatment course. The recovered patient still faces downstream First Fill, Refill, Continued Treatment, and post-continuation attrition.
+
+I therefore replaced potential-value intervention revenue with expected realised revenue based on the observed downstream window-closed conversion rates and the configured post-continuation progression probability.
+
+The correction was stage-dependent rather than a uniform haircut. Earlier-stage interventions were affected more strongly because recovered patients still had more downstream transitions to survive.
+
+Approximate potential-value overstatement was:
+
+- Prescriber detailing / recovery to Prescribed: about 5.12×.
+- Copay assistance / recovery to First Fill: about 3.23×.
+- Refill reminders / recovery to Refill: about 2.96×.
+- Continued-treatment interventions: about 2.65×.
+
+Because these corrections differ by stage, the intervention ranking changed materially when expected realised value was used.
+
+Every intervention changed rank relative to the original potential-value ranking, and prescriber detailing moved from near the top of the ranking to near the bottom.
+
+The sensitivity conclusion also changed. Under the original potential-value convention, the intervention ranking appeared relatively stable. Under expected-realised valuation, the 0.5× lift scenario causes two interventions to become loss-making.
+
+This means the earlier apparent ranking stability was partly an artifact of an incorrect valuation assumption rather than evidence that the recommendation was robust.
+
+The final intervention recommendation is therefore based on expected realised value, while potential value is retained only as a comparison showing how much treatment revenue is theoretically at stake.
+
+This distinction became one of the main findings of the project: correcting an apparently reasonable valuation assumption materially changed the business recommendation.

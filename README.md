@@ -1,71 +1,164 @@
 # Patient Journey Leakage & Intervention Optimization Engine
 
-Identifies where and why patients leave a treatment journey, then recommends
-the most profitable intervention to reduce that drop-off.
+A decision-analytics project that identifies where patients leave a treatment journey, explains which patient characteristics are associated with that leakage, quantifies the revenue at stake, and evaluates which interventions are economically worth pursuing.
 
-> Fill this README in as you build. Problem first, findings second, usage last.
-> Recruiters read the top third.
+The project uses synthetic pharmaceutical patient data with known ground-truth effects so the analytical pipeline can be validated before recommendations are made.
 
-## The problem
+---
 
-<!-- Why does patient leakage cost pharma companies money, and why is it hard
-to know which stage to fix? 3-4 sentences. -->
+## Key Findings
 
-## The journey
+### 1. A seemingly reasonable denominator rule introduced measurable selection bias
 
-Diagnosed → Prescribed → First Fill → Refill → Continued Treatment
+My initial funnel definition treated patients who had already converted as eligible even when their full observation window had not closed.
 
-<!-- State your stage definitions here, copied from DECISIONS.md. -->
+This created outcome-dependent selection: recent converters entered the denominator while comparable recent non-converters were censored.
 
-## Findings
+The result was an upward conversion-rate bias of approximately **0.5–1.4 percentage points**, depending on the transition.
 
-<!-- Fill after you run it. Lead with the number.
-Example shape:
-- 61% of total patient loss occurs at first fill
-- Loss is concentrated in cash-pay patients (2.9x the abandonment rate)
-- Copay assistance returns Rs X per Rs 1 spent, ahead of refill reminders
--->
+I replaced this with a **window-closed denominator**, where patients enter a transition denominator only after their complete opportunity window has elapsed, regardless of outcome.
 
-## Method
+The original and corrected rules remain implemented so the impact of this design choice can be reproduced.
 
-1. **Journey builder** — sequences patient events, assigns furthest stage reached
-2. **Funnel engine** — stage conversion, drop-off, revenue lost per stage
-3. **Segment analyzer** — same funnel cut by payer, age, specialty, geography
-4. **Driver model** — logistic regression on drop-off, interpreted via odds ratios
-5. **Intervention simulator** — recovered revenue per rupee, ranked
+---
 
-## Validation
+### 2. A standard funnel missed one of the largest sources of revenue leakage
 
-This runs on synthetic data with known injected effects. The analysis is
-validated by confirming it recovers the effects that were injected, and their
-approximate magnitude. This is model validation, not discovery.
+The five-stage funnel identified approximately:
 
-<!-- State which effects you injected and whether the analysis recovered them. -->
+- **₹360.5M** in potential revenue loss before Continued Treatment.
 
-## Running it
+However, treatment attrition does not stop once a patient reaches the final funnel stage.
 
-```bash
-pip install -r requirements.txt
-python -m src.generate_data
-python -m src.report
-```
+After correcting post-continuation estimates for censoring, an additional approximately:
 
-## Structure
+- **₹70.1M** of potential revenue loss
 
-```
-src/
-  generate_data.py   synthetic patient event generator
-  journey.py         event sequencing, stage assignment, censoring
-  funnel.py          conversion rates, drop-off, revenue loss
-  segmentation.py    funnel by segment, cohort comparison
-  drivers.py         logistic regression, odds ratios
-  interventions.py   ROI simulation and ranking
-  report.py          charts and summary output
-config/config.yaml   all parameters and assumptions
-DECISIONS.md         design decisions and their reasoning
-```
+was identified after Continued Treatment.
 
-## Assumptions
+This makes post-continuation attrition the **third-largest revenue-loss source**, despite sitting completely outside the standard five-stage funnel.
 
-<!-- Every intervention lift, revenue figure, and stage boundary is an
-assumption you chose. List them plainly. Interviewers respect this. -->
+Combined potential loss:
+
+**≈ ₹430.6M**
+
+This demonstrates why optimizing only visible funnel transitions can miss economically important persistence problems.
+
+---
+
+### 3. My original multicollinearity hypothesis was wrong
+
+Out-of-pocket cost was deliberately generated as strongly correlated with payer type.
+
+I initially predicted that adding both predictors to the logistic regression would attenuate the independent cash-pay coefficient.
+
+It did not.
+
+The cash-pay odds ratio changed only about:
+
+**0.3792 → 0.3765**
+
+while its standard error increased approximately **2.10×** and VIF increased from approximately **1.33 to 6.31**.
+
+Out-of-pocket cost was highly predictive when payer was omitted, but became almost completely null after payer entered the model:
+
+**p ≈ 0.928**
+
+The result clarified an important distinction:
+
+> Multicollinearity primarily reduces precision by inflating variance; it does not automatically bias a coefficient toward zero.
+
+Out-of-pocket cost behaved as a **proxy variable** rather than an independent driver.
+
+---
+
+### 4. Correcting the intervention valuation changed the business recommendation
+
+My first intervention model valued each recovered patient using their full remaining potential treatment value.
+
+That is appropriate when measuring **revenue at stake** in a funnel, but it is not appropriate for intervention ROI.
+
+A recovered patient still faces downstream refill, continuation, and post-continuation attrition.
+
+I therefore replaced potential revenue with **expected realised revenue**, propagating each recovered patient through the remaining journey using observed downstream conversion rates.
+
+The original method overstated intervention value by approximately:
+
+| Recovery point | Potential-value overstatement |
+|---|---:|
+| Prescribed | ~5.12× |
+| First Fill | ~3.23× |
+| Refill | ~2.96× |
+| Continued Treatment | ~2.65× |
+
+Because the error was stage-dependent rather than a uniform multiplier, correcting it **changed every intervention rank**.
+
+Prescriber detailing moved from near the top of the ranking to near the bottom, and under the **0.5× lift sensitivity scenario, two interventions became loss-making**.
+
+The apparent stability of the original recommendation was therefore partly an artifact of the valuation assumption.
+
+Final intervention recommendations are ranked using **expected realised value**, not full potential value.
+
+---
+
+## The Problem
+
+Patient leakage can occur at several points between diagnosis, treatment initiation, refill, and continued therapy.
+
+Simply identifying the stage with the worst conversion rate is not enough.
+
+A useful commercial decision requires answering four different questions:
+
+1. **Where** are patients being lost?
+2. **Who** is most associated with that leakage?
+3. **Why** might the observed pattern be occurring?
+4. **Which intervention generates enough expected value to justify its cost?**
+
+The project builds those steps into one reproducible analytical pipeline.
+
+---
+
+## Patient Journey
+
+The modeled journey is:
+
+**Diagnosed → Prescribed → First Fill → Refill → Continued Treatment**
+
+### Stage definitions
+
+| Stage | Definition |
+|---|---|
+| Diagnosed | First confirmed diagnosis within the study period |
+| Prescribed | First treatment prescription within 60 days of diagnosis |
+| First Fill | First medication dispense within 30 days of prescription |
+| Refill | Second dispense within 45 days of first fill |
+| Continued Treatment | At least 3 total consecutive fills, including the first fill, with no gap greater than 45 days |
+
+Patients can continue receiving medication after reaching Continued Treatment.
+
+Each additional post-continuation fill occurs with probability **0.75**, with treatment capped at **12 total fills**.
+
+This allows persistence loss after the final funnel stage to be measured separately.
+
+---
+
+## Analytical Pipeline
+
+```text
+Synthetic Patient Generation
+            ↓
+Journey Construction
+            ↓
+Censoring / Eligibility
+            ↓
+Funnel Leakage Analysis
+            ↓
+Segment Analysis
+            ↓
+Driver Modelling
+            ↓
+Intervention Simulation
+            ↓
+Expected-Realised ROI
+            ↓
+Business Recommendation
